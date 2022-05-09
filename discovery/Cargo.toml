@@ -1,0 +1,30 @@
+[package]
+name = "discovery"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "discovery"
+path = "src/lib.rs"
+
+[[bin]]
+name = "discovery"
+path = "src/bin.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+webrtc = "0.4.0"
+anyhow = "1.0.52"
+rocket = "0.4.10"
+serde_json = "1.0.81"
+serde = "1.0.137"
+rocket_contrib = "0.4.10"
+common = { path = "../common" }
+[dependencies.uuid]
+version = "1.0.0"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
