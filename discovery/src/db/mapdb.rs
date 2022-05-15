@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use common::entities::IceServer;
+use common::entities::{IceServer, ServerInfo};
 
 use crate::errors::DiscoveryError;
 
-use super::{ServerInfo, DB};
+use super::DB;
 
 pub struct MapDB {
     data: HashMap<String, ServerInfo>,
@@ -17,6 +17,7 @@ impl DB for MapDB {
         server_uuid: String,
         files: Option<Vec<String>>,
         ice_servers: Option<Vec<IceServer>>,
+        url: String,
     ) -> Result<(), DiscoveryError> {
         if !self.data.contains_key(&server_uuid) {
             let mut server_info: ServerInfo = Default::default();
@@ -28,6 +29,10 @@ impl DB for MapDB {
             if let Some(ice_servers) = ice_servers {
                 server_info.ice_servers = ice_servers;
             }
+
+            server_info.id = server_uuid.clone();
+
+            server_info.url = url;
 
             self.data.insert(server_uuid, server_info);
         }
@@ -71,11 +76,16 @@ impl DB for MapDB {
         Some(&self.data.get(&server_uuid)?.ice_servers)
     }
 
-    fn find_server_by_file(&self, file_id: String) -> Result<(String, ServerInfo), DiscoveryError> {
-        for (key, value) in &self.data {
+    fn find_servers_by_file(&self, file_id: String) -> Result<Vec<ServerInfo>, DiscoveryError> {
+        let mut servers = vec![];
+        for (_, value) in &self.data {
             if value.files.contains(&file_id) {
-                return Ok((key.clone(), value.clone()));
+                servers.push(value.clone());
             }
+        }
+
+        if servers.len() > 0 {
+            return Ok(servers);
         }
 
         Err(DiscoveryError::ServerNotFoundError)

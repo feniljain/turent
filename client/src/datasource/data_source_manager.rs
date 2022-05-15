@@ -37,17 +37,14 @@ impl DataSourceManager {
         &self,
         server_id: Uuid,
         offer: RTCSessionDescription,
-    ) -> Result<(), ClientError> {
+    ) -> Result<RTCSessionDescription, ClientError> {
         for ds in &self.data_sources {
             if ds.id == server_id {
+                self.logger.log_debug("Server ID found!");
                 return ds.accept_connection_req_of_client(offer).await;
             }
         }
 
         Err(ClientError::ServerWithGivenIdNotFound)
-    }
-
-    pub fn check_if_file_present() -> bool {
-        false
     }
 }

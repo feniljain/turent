@@ -32,3 +32,22 @@ impl IceServer {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerInfo {
+    pub files: Vec<String>,
+    pub ice_servers: Vec<IceServer>,
+    pub url: String,
+    pub id: String,
+}
+
+impl Default for ServerInfo {
+    fn default() -> Self {
+        Self {
+            files: Default::default(),
+            ice_servers: Default::default(),
+            url: String::new(),
+            id: String::new(),
+        }
+    }
+}

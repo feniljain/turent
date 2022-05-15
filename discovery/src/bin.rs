@@ -9,6 +9,7 @@ pub mod errors;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Result};
+use common::models::FindServerForFileRes;
 use rocket::State;
 use rocket_contrib::json::Json;
 use serde_json::{json, Value};
@@ -45,7 +46,7 @@ pub fn register_or_refresh_server(
         Err(_) => bail!("Internal Server Error"),
     };
 
-    unwrapped_data.update(
+    unwrapped_data.register(
         req.server_id.clone(),
         req.files.clone(),
         req.ice_candidates.clone(),
@@ -57,8 +58,11 @@ pub fn register_or_refresh_server(
     })))
 }
 
-#[get("/server/<file_id>")]
-pub fn get_server_by_file_id(discovery: State<Discovery>, file_id: String) -> Result<Json<Value>> {
+#[get("/<file_id>", format = "application/json")]
+pub fn get_servers_by_file_id(
+    discovery: State<Discovery>,
+    file_id: String,
+) -> Result<Json<FindServerForFileRes>> {
     let discovery_data = discovery.inner();
 
     let unwrapped_data = match discovery_data.db.lock() {
@@ -72,13 +76,12 @@ pub fn get_server_by_file_id(discovery: State<Discovery>, file_id: String) -> Re
         Err(_) => bail!("Invalid ID format"),
     };
 
-    let (server_id, server_info) = unwrapped_data.find_server_by_file(file_id)?;
+    let servers_info = unwrapped_data.find_servers_by_file(file_id.to_string())?;
 
-    Ok(Json(json!({
-        "success":  true,
-        "id": server_id,
-        "info": server_info
-    })))
+    Ok(Json(FindServerForFileRes {
+        servers_info,
+        success: true,
+    }))
 }
 
 impl Discovery {
@@ -112,8 +115,8 @@ fn rocket() -> rocket::Rocket {
     let rocket = rocket.manage(discovery);
     let rocket = rocket.mount("/", routes![hello]);
     rocket.mount(
-        "/api",
-        routes![register_or_refresh_server, get_server_by_file_id],
+        "/api/server",
+        routes![register_or_refresh_server, get_servers_by_file_id],
     )
 }
 

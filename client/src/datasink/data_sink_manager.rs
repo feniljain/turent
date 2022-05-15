@@ -1,5 +1,5 @@
-use crate::errors::ClientError;
-use common::logger::Logger;
+use crate::{api::Api, errors::ClientError};
+use common::{entities::ServerInfo, logger::Logger};
 use uuid::Uuid;
 
 use super::datasink::DataSink;
@@ -17,9 +17,18 @@ impl DataSinkManager {
         })
     }
 
-    pub async fn new_data_sink(&self, file_id: Uuid) -> Result<(), ClientError> {
+    pub async fn new_data_sink(
+        &mut self,
+        file_id: Uuid,
+        server_info: ServerInfo,
+        api: &Api,
+    ) -> Result<(), ClientError> {
         //Create new data sink
-        let mut data_sink = DataSink::new(file_id).await?;
+        let mut data_sink = DataSink::new(file_id, server_info).await?;
+
+        data_sink.init(file_id, api).await?;
+
+        self.data_sinks.push(data_sink);
 
         // let (server_id, server_info) = discovery
         //     .get_server_by_file_id(file_id)
@@ -36,7 +45,5 @@ impl DataSinkManager {
         Ok(())
     }
 
-    pub fn file_discovery(&self, server_uuid: String) -> Vec<Uuid> {
-        vec![]
-    }
+    // pub async fn connect_to_data_source(&self, api: &Api) -> Result<(), ClientError> {}
 }

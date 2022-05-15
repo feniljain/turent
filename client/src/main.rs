@@ -8,19 +8,17 @@ mod errors;
 // #[cfg(test)]
 // mod tests;
 
-#[macro_use]
-extern crate rocket;
-
 use std::env::args;
 
 use engine::Engine;
 
 use errors::ClientError;
 use uuid::uuid;
-use webrtc::{
-    self, data_channel::RTCDataChannel, ice_transport::ice_server::RTCIceServer,
-    peer_connection::configuration::RTCConfiguration,
-};
+
+// use webrtc::{
+//     self, data_channel::RTCDataChannel, ice_transport::ice_server::RTCIceServer,
+//     peer_connection::configuration::RTCConfiguration,
+// };
 
 fn parse_value(value: &str) -> bool {
     if value == "true" {
@@ -48,8 +46,8 @@ fn parse_arg(argument: String) -> (Option<bool>, Option<bool>) {
 }
 
 fn parse_args(arguments: Vec<String>) -> (bool, bool) {
-    let mut init_client = true;
-    let mut init_server = true;
+    let mut init_client = false;
+    let mut init_server = false;
 
     for arg in arguments {
         let res = parse_arg(arg);
@@ -71,14 +69,18 @@ async fn main() -> Result<(), ClientError> {
 
     (init_client, init_server) = parse_args(arguments);
 
-    let engine = Engine::new(
+    Engine::new(
         Some(uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")),
         init_client,
         init_server,
     )
+    .await?
+    .start()
     .await?;
+    //
 
-    engine.rocket().launch();
+    // engine.rocket().launch();
+    // engine.start_server().await?;
 
     //=================================
 
