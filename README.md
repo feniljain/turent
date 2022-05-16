@@ -16,7 +16,7 @@ There are three sections of this project:
 cargo run -p discovery
 ```
 
-- For running the client:
+- For running the client ( here client = datasink and server = datasource ):
 ```bash
 cargo run -p client -- init_server=true init_client=true
 ```
