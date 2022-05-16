@@ -31,3 +31,5 @@ cargo run -p client -- init_server=true
 ```bash
 cargo run -p client -- init_client=true
 ```
+
+IK, code isn't clean, and yeah I could name a couple of things better, also make overall flow of using datasink and datasource through engine better. But it is at a stage, where these are small cleanups. And having a frontend would have helped with that, but naa I am currently not interested in making frontends. So as a good engineer, I will leave them to my future self!
