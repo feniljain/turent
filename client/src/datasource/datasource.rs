@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use std::sync::Arc;
 
 use common::{helpers::from_rtc_ice_server, logger::Logger, models::CandidateReq};
@@ -7,9 +8,9 @@ use webrtc::{
     api::{
         interceptor_registry::register_default_interceptors, media_engine::MediaEngine, APIBuilder,
     },
+    data_channel::RTCDataChannel,
     ice_transport::{
-        ice_candidate::{RTCIceCandidate, RTCIceCandidateInit},
-        ice_connection_state::RTCIceConnectionState,
+        ice_candidate::RTCIceCandidate, ice_connection_state::RTCIceConnectionState,
         ice_server::RTCIceServer,
     },
     interceptor::registry::Registry,
@@ -19,7 +20,7 @@ use webrtc::{
     },
 };
 
-use crate::{api::Api, errors::ClientError};
+use crate::{api::Api, errors::ClientError, file::File};
 
 pub struct DataSource {
     pub id: Uuid,
@@ -196,6 +197,56 @@ impl DataSource {
             .set_local_description(answer.clone())
             .await
             .map_err(|err| ClientError::WebRTCError(err))?;
+
+        self.peer_connection
+            .on_data_channel(Box::new(move |d: Arc<RTCDataChannel>| {
+                let d_label = d.label().to_owned();
+                let d_id = d.id();
+                println!("New DataChannel {} {}", d_label, d_id);
+
+                //====
+                // Register channel opening handling
+
+                Box::pin(async move {
+                    let d2 = Arc::clone(&d);
+                    let d_label2 = d_label.clone();
+                    let d_id2 = d_id;
+
+                    d.on_open(Box::new(move || {
+                        println!("Data channel '{}'-'{}' open", d_label2, d_id2);
+                        Box::pin(async move {
+                            let file = File::new(
+                                "/Users/feniljain/Projects/rust-projects/turent".to_string(),
+                                "example_file.txt".to_string(),
+                            );
+                            match file.chunkify() {
+                                Ok(chunks) => {
+                                    for chunk in chunks {
+                                        match d2.send(&Bytes::copy_from_slice(&chunk)).await {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                println!("Err sending chunk: {:?}", err);
+                                            }
+                                        }
+                                    }
+
+                                    match d2.close().await {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            println!("Error while closing file: {:?}", err);
+                                        }
+                                    }
+                                }
+                                Err(err) => {
+                                    println!("Err chunkifying: {:?}", err);
+                                }
+                            }
+                        })
+                    }))
+                    .await;
+                })
+            }))
+            .await;
 
         // Block until ICE Gathering is complete, disabling trickle ICE
         // we do this because we only can exchange one signaling message

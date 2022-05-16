@@ -9,6 +9,8 @@ pub enum ClientError {
     ClientWithGivenIdNotFound,
     InvalidConfiguration,
     ErrConvertingCandidateToJson,
+    ErrReadingFile(String),
+    ErrWritingFile(String),
 }
 
 impl std::error::Error for ClientError {}
@@ -28,6 +30,8 @@ impl std::fmt::Display for ClientError {
                     "Error Converting ICE Candidate to JSON for add_ice_candidate"
                 )
             }
+            ClientError::ErrReadingFile(err) => write!(f, "Error reading file: {:?}", err),
+            ClientError::ErrWritingFile(err) => write!(f, "Error writing file: {:?}", err),
         }
     }
 }
@@ -39,6 +43,7 @@ pub enum ApiError {
     ErrorInitializingServer,
     ErrorRunningServer,
     InternalServerError,
+    ErrAddIceCandidateReq,
 }
 
 impl std::error::Error for ApiError {}
@@ -51,6 +56,7 @@ impl std::fmt::Display for ApiError {
             ApiError::ErrorInitializingServer => write!(f, "Error Initializing Server"),
             ApiError::ErrorRunningServer => write!(f, "Error Running Server"),
             ApiError::InternalServerError => write!(f, "Internal Server Error"),
+            ApiError::ErrAddIceCandidateReq => write!(f, "Error add ICE candidate request"),
         }
     }
 }
@@ -62,6 +68,7 @@ impl ResponseError for ClientError {
                 ApiError::ReqwestError(_)
                 | ApiError::ErrorInitializingServer
                 | ApiError::ErrorRunningServer
+                | ApiError::ErrAddIceCandidateReq
                 | ApiError::InternalServerError => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
                 ApiError::InvalidIdFormat => reqwest::StatusCode::BAD_REQUEST,
             },
@@ -70,6 +77,8 @@ impl ResponseError for ClientError {
             | ClientError::ServerWithGivenIdNotFound
             | ClientError::ClientWithGivenIdNotFound
             | ClientError::ErrConvertingCandidateToJson
+            | ClientError::ErrReadingFile(_)
+            | ClientError::ErrWritingFile(_)
             | ClientError::InvalidConfiguration => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

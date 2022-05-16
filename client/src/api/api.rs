@@ -103,14 +103,18 @@ impl Api {
             .await
             .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?;
 
-        println!("Req: {:?}", req_body);
-        println!("Status: {}", res.status());
-        println!(
-            "Response Text: {:#?}",
-            res.text()
-                .await
-                .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?
-        );
+        if !res.status().is_success() {
+            return Err(ClientError::ApiError(ApiError::ErrAddIceCandidateReq));
+        }
+
+        // println!("Req: {:?}", req_body);
+        // println!("Status: {}", res.status());
+        // println!(
+        //     "Response Text: {:#?}",
+        //     res.text()
+        //         .await
+        //         .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?
+        // );
 
         // if res.
 

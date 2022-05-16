@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 
 use common::{
     entities::{ClientInfo, ServerInfo},
@@ -10,10 +13,9 @@ use webrtc::{
     api::{
         interceptor_registry::register_default_interceptors, media_engine::MediaEngine, APIBuilder,
     },
-    data_channel::RTCDataChannel,
+    data_channel::{data_channel_message::DataChannelMessage, RTCDataChannel},
     ice_transport::{
-        ice_candidate::{RTCIceCandidate, RTCIceCandidateInit},
-        ice_connection_state::RTCIceConnectionState,
+        ice_candidate::RTCIceCandidate, ice_connection_state::RTCIceConnectionState,
         ice_server::RTCIceServer,
     },
     interceptor::registry::Registry,
@@ -23,7 +25,7 @@ use webrtc::{
     },
 };
 
-use crate::{api::Api, errors::ClientError};
+use crate::{api::Api, errors::ClientError, file::File};
 
 pub struct DataSink {
     pub id: Uuid,
@@ -110,13 +112,48 @@ impl DataSink {
             .await
             .map_err(|err| ClientError::WebRTCError(err))?;
 
+        let total_bytes_received = Arc::new(AtomicUsize::new(0));
+        let file = Arc::new(Mutex::new(File::new(
+            "/Users/feniljain/Projects/rust-projects/turent".to_string(),
+            "example_file_received.txt".to_string(),
+        )));
+
+        let file2 = Arc::clone(&file);
+        dc.on_message(Box::new(move |msg: DataChannelMessage| {
+            let n = msg.data.len();
+            total_bytes_received.fetch_add(n, Ordering::SeqCst);
+            if let Ok(mut f) = file2.lock() {
+                f.append_bytes(msg.data);
+            }
+            // file3.append_bytes(msg.data);
+            println!("Received message!: {:?}", n);
+            Box::pin(async {})
+        }))
+        .await;
+
+        let file2 = Arc::clone(&file);
+        dc.on_close(Box::new(move || {
+            println!("Data Channel closing!");
+            if let Ok(f) = file2.lock() {
+                match f.build_file() {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Error while building file: {:?}", err);
+                    }
+                }
+            }
+            Box::pin(async {})
+        }))
+        .await;
+
         let d1 = Arc::clone(&dc);
         dc.on_open(Box::new(move || {
-        println!("Data channel '{}'-'{}' open. Random messages will now be sent to any connected DataChannels every 5 seconds", d1.label(), d1.id());
+            println!("Data channel '{}'-'{}' open", d1.label(), d1.id());
 
-        // let d2 = Arc::clone(&d1);
-        Box::pin(async move {})
-    })).await;
+            // let d2 = Arc::clone(&d1);
+            Box::pin(async move {})
+        }))
+        .await;
 
         Ok(Self {
             id,

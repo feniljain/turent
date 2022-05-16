@@ -5,6 +5,7 @@ mod datasink;
 mod datasource;
 mod engine;
 mod errors;
+mod file;
 // #[cfg(test)]
 // mod tests;
 
