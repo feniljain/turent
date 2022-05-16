@@ -8,6 +8,7 @@ pub enum ClientError {
     ServerWithGivenIdNotFound,
     ClientWithGivenIdNotFound,
     InvalidConfiguration,
+    ErrConvertingCandidateToJson,
 }
 
 impl std::error::Error for ClientError {}
@@ -21,6 +22,12 @@ impl std::fmt::Display for ClientError {
             ClientError::ServerWithGivenIdNotFound => write!(f, "Server with given id not found"),
             ClientError::ClientWithGivenIdNotFound => write!(f, "Client with given id not found"),
             ClientError::InvalidConfiguration => write!(f, "Invalid Configuration"),
+            ClientError::ErrConvertingCandidateToJson => {
+                write!(
+                    f,
+                    "Error Converting ICE Candidate to JSON for add_ice_candidate"
+                )
+            }
         }
     }
 }
@@ -62,6 +69,7 @@ impl ResponseError for ClientError {
             | ClientError::DiscoveryServerNotUp
             | ClientError::ServerWithGivenIdNotFound
             | ClientError::ClientWithGivenIdNotFound
+            | ClientError::ErrConvertingCandidateToJson
             | ClientError::InvalidConfiguration => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

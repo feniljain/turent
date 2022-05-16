@@ -47,23 +47,21 @@ impl DataSource {
 
         // Prepare the configuration
         let config = RTCConfiguration {
-            ice_servers: vec![
-                RTCIceServer {
-                    urls: vec!["stun:stun.l.google.com:19302".to_owned()],
-                    ..Default::default()
-                },
-                RTCIceServer {
-                    urls: vec![
-                        "turn:turn.dyte.in:443?transport=tcp".to_owned(),
-                        "turn:turn.dyte.in:3478?transport=udp".to_owned(),
-                    ],
-                    username: "dyte".to_string(),
-                    credential: "dytein".to_string(),
-                    ..Default::default()
-                },
-            ],
+            ice_servers: vec![RTCIceServer {
+                urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+                ..Default::default()
+            }],
             ..Default::default()
         };
+        // RTCIceServer {
+        //     urls: vec![
+        //         "turn:turn.dyte.in:443?transport=tcp".to_owned(),
+        //         "turn:turn.dyte.in:3478?transport=udp".to_owned(),
+        //     ],
+        //     username: "dyte".to_string(),
+        //     credential: "dytein".to_string(),
+        //     ..Default::default()
+        // },
         let ice_servers = config.ice_servers.clone();
 
         //Make peer connection
@@ -167,7 +165,7 @@ impl DataSource {
                     if let Some(ice_candidate) = c {
                         match client_api
                             .send_candidate(
-                                "http://localhost:8081".to_string(),
+                                "http://127.0.0.1:8081".to_string(),
                                 CandidateReq {
                                     id: client_id.to_string(),
                                     candidate: ice_candidate,
@@ -209,13 +207,15 @@ impl DataSource {
     }
 
     pub async fn add_ice_candidate(&self, candidate: RTCIceCandidate) -> Result<(), ClientError> {
-        self.peer_connection
-            .add_ice_candidate(RTCIceCandidateInit {
-                candidate: candidate.to_string(),
-                ..Default::default()
-            })
-            .await
-            .map_err(|err| ClientError::WebRTCError(err))
+        if let Ok(c) = candidate.to_json().await {
+            return self
+                .peer_connection
+                .add_ice_candidate(c)
+                .await
+                .map_err(|err| ClientError::WebRTCError(err));
+        }
+
+        return Err(ClientError::ErrConvertingCandidateToJson);
     }
 
     // pub fn send_file_to_client() {}

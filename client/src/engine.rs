@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use actix_web::{post, web, App, HttpResponse, HttpServer};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use common::{
     entities::ServerInfo,
     logger::Logger,
@@ -95,8 +95,9 @@ impl Engine {
                     .app_data(app_state.clone())
                     .service(on_offer)
                     .service(candidates)
+                    .service(hello)
             })
-            .bind(("127.0.0.1", 8080))
+            .bind(("localhost", 8080))
             .map_err(|_| ClientError::ApiError(ApiError::ErrorInitializingServer))?
             .run()
             .await
@@ -126,8 +127,9 @@ impl Engine {
                     .app_data(app_state.clone())
                     .service(on_offer)
                     .service(candidates)
+                    .service(hello)
             })
-            .bind(("127.0.0.1", 8081))
+            .bind(("localhost", 8081))
             .map_err(|_| ClientError::ApiError(ApiError::ErrorInitializingServer))?
             .run()
             .await
@@ -233,4 +235,9 @@ pub async fn candidates(
     Ok(HttpResponse::Ok().json(json!({
         "success":  true,
     })))
+}
+
+#[get("/")]
+async fn hello() -> impl Responder {
+    HttpResponse::Ok().body("Hello world!")
 }

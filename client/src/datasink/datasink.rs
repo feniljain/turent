@@ -56,23 +56,21 @@ impl DataSink {
 
         // Prepare the configuration
         let config = RTCConfiguration {
-            ice_servers: vec![
-                RTCIceServer {
-                    urls: vec!["stun:stun.l.google.com:19302".to_owned()],
-                    ..Default::default()
-                },
-                RTCIceServer {
-                    urls: vec![
-                        "turn:turn.dyte.in:443?transport=tcp".to_owned(),
-                        "turn:turn.dyte.in:3478?transport=udp".to_owned(),
-                    ],
-                    username: "dyte".to_string(),
-                    credential: "dytein".to_string(),
-                    ..Default::default()
-                },
-            ],
+            ice_servers: vec![RTCIceServer {
+                urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+                ..Default::default()
+            }],
             ..Default::default()
         };
+        // RTCIceServer {
+        //     urls: vec![
+        //         "turn:turn.dyte.in:443?transport=tcp".to_owned(),
+        //         "turn:turn.dyte.in:3478?transport=udp".to_owned(),
+        //     ],
+        //     username: "dyte".to_string(),
+        //     credential: "dytein".to_string(),
+        //     ..Default::default()
+        // },
 
         //Make peer connection
         let peer_connection = Arc::new(
@@ -105,6 +103,7 @@ impl DataSink {
 
         let id = Uuid::new_v4();
 
+        //TODO: Change this label later
         //Create data channel
         let dc = peer_connection
             .create_data_channel(&id.to_string(), None)
@@ -208,13 +207,23 @@ impl DataSink {
     }
 
     pub async fn add_ice_candidate(&self, candidate: RTCIceCandidate) -> Result<(), ClientError> {
-        self.peer_connection
-            .add_ice_candidate(RTCIceCandidateInit {
-                candidate: candidate.to_string(),
-                ..Default::default()
-            })
-            .await
-            .map_err(|err| ClientError::WebRTCError(err))
+        // self.peer_connection
+        //     .add_ice_candidate(RTCIceCandidateInit {
+        //         candidate: candidate.to_string(),
+        //         ..Default::default()
+        //     })
+        //     .await
+        //     .map_err(|err| ClientError::WebRTCError(err))
+
+        if let Ok(c) = candidate.to_json().await {
+            return self
+                .peer_connection
+                .add_ice_candidate(c)
+                .await
+                .map_err(|err| ClientError::WebRTCError(err));
+        }
+
+        return Err(ClientError::ErrConvertingCandidateToJson);
     }
 
     // pub fn receive_data_from_server(&self) {}
