@@ -6,6 +6,7 @@ pub enum ClientError {
     WebRTCError(webrtc::Error),
     DiscoveryServerNotUp,
     ServerWithGivenIdNotFound,
+    ClientWithGivenIdNotFound,
     InvalidConfiguration,
 }
 
@@ -18,6 +19,7 @@ impl std::fmt::Display for ClientError {
             ClientError::WebRTCError(err) => write!(f, "{:?}", err),
             ClientError::DiscoveryServerNotUp => write!(f, "Discovery Server Not functioning"),
             ClientError::ServerWithGivenIdNotFound => write!(f, "Server with given id not found"),
+            ClientError::ClientWithGivenIdNotFound => write!(f, "Client with given id not found"),
             ClientError::InvalidConfiguration => write!(f, "Invalid Configuration"),
         }
     }
@@ -28,6 +30,7 @@ pub enum ApiError {
     ReqwestError(reqwest::Error),
     InvalidIdFormat,
     ErrorInitializingServer,
+    ErrorRunningServer,
     InternalServerError,
 }
 
@@ -39,6 +42,7 @@ impl std::fmt::Display for ApiError {
             ApiError::ReqwestError(err) => write!(f, "{:?}", err),
             ApiError::InvalidIdFormat => write!(f, "Server id is not properly formatted"),
             ApiError::ErrorInitializingServer => write!(f, "Error Initializing Server"),
+            ApiError::ErrorRunningServer => write!(f, "Error Running Server"),
             ApiError::InternalServerError => write!(f, "Internal Server Error"),
         }
     }
@@ -50,12 +54,14 @@ impl ResponseError for ClientError {
             ClientError::ApiError(err) => match err {
                 ApiError::ReqwestError(_)
                 | ApiError::ErrorInitializingServer
+                | ApiError::ErrorRunningServer
                 | ApiError::InternalServerError => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
                 ApiError::InvalidIdFormat => reqwest::StatusCode::BAD_REQUEST,
             },
             ClientError::WebRTCError(_)
             | ClientError::DiscoveryServerNotUp
             | ClientError::ServerWithGivenIdNotFound
+            | ClientError::ClientWithGivenIdNotFound
             | ClientError::InvalidConfiguration => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

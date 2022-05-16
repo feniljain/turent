@@ -53,6 +53,8 @@ pub fn register_or_refresh_server(
         req.url.clone(),
     )?;
 
+    println!("Registered server with id: {:?}", req.server_id);
+
     Ok(Json(json!({
         "success":  true,
     })))

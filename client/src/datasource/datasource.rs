@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use common::{helpers::from_rtc_ice_server, logger::Logger};
+use common::{helpers::from_rtc_ice_server, logger::Logger, models::CandidateReq};
 
 use uuid::Uuid;
 use webrtc::{
@@ -23,6 +23,7 @@ use crate::{api::Api, errors::ClientError};
 
 pub struct DataSource {
     pub id: Uuid,
+    // client_id: Option<Uuid>,
     peer_connection: Arc<RTCPeerConnection>,
     logger: Logger,
 }
@@ -64,6 +65,7 @@ impl DataSource {
             ..Default::default()
         };
         let ice_servers = config.ice_servers.clone();
+
         //Make peer connection
         let peer_connection = Arc::new(
             api.new_peer_connection(config)
@@ -120,36 +122,6 @@ impl DataSource {
         //    }))
         //    .await;
 
-        //Register listener for onIceCandidate
-        let pc = Arc::downgrade(&peer_connection);
-        peer_connection
-            .on_ice_candidate(Box::new(move |c: Option<RTCIceCandidate>| {
-                println!("on_ice_candidate datasink {:?}", c);
-
-                let pc2 = pc.clone();
-                Box::pin(async move {
-                    if let Some(ice_candidate) = c {
-                        if let Some(pc) = pc2.upgrade() {
-                            match pc
-                                .add_ice_candidate(RTCIceCandidateInit {
-                                    candidate: ice_candidate.to_string(),
-                                    ..Default::default()
-                                })
-                                .await
-                            {
-                                Ok(x) => println!("[datasource] ICE Candidate Added"),
-                                Err(err) => println!(
-                                    "ICE Candidate: Failed at adding ice candidate [datasource], Error: {:?}", err
-                                ),
-                            }
-                        } else {
-                            println!("ICE Candidate: Failed at upgrading [datasource]");
-                        }
-                    }
-                })
-            }))
-            .await;
-
         peer_connection
             .on_ice_connection_state_change(Box::new(|connection_state: RTCIceConnectionState| {
                 println!(
@@ -160,10 +132,9 @@ impl DataSource {
             }))
             .await;
 
-        logger.log_debug("Made a new data source!");
-
         Ok(Self {
             id: uuid,
+            // client_id: None,
             peer_connection,
             logger,
         })
@@ -171,9 +142,10 @@ impl DataSource {
 
     pub async fn accept_connection_req_of_client(
         &self,
+        client_id: Uuid,
         offer: RTCSessionDescription,
     ) -> Result<RTCSessionDescription, ClientError> {
-        self.logger.log_debug("Inside Accept Connect Req Of Client");
+        // self.client_id = Some(client_id);
 
         self.peer_connection
             .set_remote_description(offer)
@@ -182,30 +154,68 @@ impl DataSource {
                 self.logger.log_err(&err);
                 ClientError::WebRTCError(err)
             })?;
-        self.logger.log_debug("Set Remote Desc for Server");
+
+        //Register listener for onIceCandidate
+        self.peer_connection
+            .on_ice_candidate(Box::new(move |c: Option<RTCIceCandidate>| {
+                println!("on_ice_candidate datasource {:?}", c);
+
+                let client_id = client_id.clone();
+                let client_api = Api::new();
+
+                Box::pin(async move {
+                    if let Some(ice_candidate) = c {
+                        match client_api
+                            .send_candidate(
+                                "http://localhost:8081".to_string(),
+                                CandidateReq {
+                                    id: client_id.to_string(),
+                                    candidate: ice_candidate,
+                                },
+                            )
+                            .await
+                        {
+                            Ok(_) => println!("Candidate sent from datasource"),
+                            Err(err) => {
+                                println!("Error sending candidate from datasource, err: {:?}", err)
+                            }
+                        }
+                    }
+                })
+            }))
+            .await;
 
         let answer = self
             .peer_connection
             .create_answer(None)
             .await
             .map_err(|err| ClientError::WebRTCError(err))?;
-        self.logger.log_debug("Answer generated");
 
         // Create channel that is blocked until ICE Gathering is complete
-        let mut gather_complete = self.peer_connection.gathering_complete_promise().await;
+        // let mut gather_complete = self.peer_connection.gathering_complete_promise().await;
 
         self.peer_connection
             .set_local_description(answer.clone())
             .await
             .map_err(|err| ClientError::WebRTCError(err))?;
-        self.logger.log_debug("Local description set for server");
 
         // Block until ICE Gathering is complete, disabling trickle ICE
         // we do this because we only can exchange one signaling message
         // in a production application you should exchange ICE Candidates via OnICECandidate
-        let _ = gather_complete.recv().await;
+        // let _ = gather_complete.recv().await;
+        // self.logger.log_debug("ICE Gathering complete");
 
         Ok(answer)
+    }
+
+    pub async fn add_ice_candidate(&self, candidate: RTCIceCandidate) -> Result<(), ClientError> {
+        self.peer_connection
+            .add_ice_candidate(RTCIceCandidateInit {
+                candidate: candidate.to_string(),
+                ..Default::default()
+            })
+            .await
+            .map_err(|err| ClientError::WebRTCError(err))
     }
 
     // pub fn send_file_to_client() {}

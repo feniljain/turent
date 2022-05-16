@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
-use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
+use webrtc::{
+    ice_transport::ice_candidate::RTCIceCandidate,
+    peer_connection::sdp::session_description::RTCSessionDescription,
+};
 
-use crate::entities::{IceServer, ServerInfo};
+use crate::entities::{ClientInfo, IceServer, ServerInfo};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileLookupReq {
@@ -23,6 +26,8 @@ pub struct RegisterOrRefreshServerReq {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OfferReq {
+    #[serde(rename = "clientInfo")]
+    pub client_info: ClientInfo,
     #[serde(rename = "serverId")]
     pub server_id: String,
     #[serde(rename = "sessionDesc")]
@@ -47,4 +52,12 @@ pub struct FindServerForFileRes {
     pub servers_info: Vec<ServerInfo>,
     #[serde(rename = "success")]
     pub success: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CandidateReq {
+    #[serde(rename = "id")]
+    pub id: String,
+    #[serde(rename = "candidates")]
+    pub candidate: RTCIceCandidate,
 }

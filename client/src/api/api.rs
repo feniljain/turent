@@ -5,7 +5,8 @@ use reqwest::Client;
 
 use crate::errors::{ApiError, ClientError};
 use common::models::{
-    FindServerForFileReq, FindServerForFileRes, OfferReq, OfferRes, RegisterOrRefreshServerReq,
+    CandidateReq, FindServerForFileReq, FindServerForFileRes, OfferReq, OfferRes,
+    RegisterOrRefreshServerReq,
 };
 
 #[derive(Clone)]
@@ -86,5 +87,37 @@ impl Api {
             .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?;
 
         Ok(res)
+    }
+
+    pub async fn send_candidate(
+        &self,
+        url: String,
+        req_body: CandidateReq,
+    ) -> Result<(), ClientError> {
+        let url = String::from(url + "/candidates");
+        let res = self
+            .client
+            .post(url)
+            .json(&req_body)
+            .send()
+            .await
+            .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?;
+
+        println!("Req: {:?}", req_body);
+        println!("Status: {}", res.status());
+        println!(
+            "Response Text: {:#?}",
+            res.text()
+                .await
+                .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?
+        );
+
+        // if res.
+
+        // res.json::<HashMap<String, bool>>()
+        //     .await
+        //     .map_err(|err| ClientError::ApiError(ApiError::ReqwestError(err)))?;
+
+        Ok(())
     }
 }

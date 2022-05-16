@@ -1,6 +1,9 @@
 use common::logger::Logger;
 use uuid::Uuid;
-use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
+use webrtc::{
+    ice_transport::ice_candidate::RTCIceCandidate,
+    peer_connection::sdp::session_description::RTCSessionDescription,
+};
 
 use crate::{api::Api, errors::ClientError};
 
@@ -35,13 +38,27 @@ impl DataSourceManager {
 
     pub async fn connect_to_client(
         &self,
+        client_id: Uuid,
         server_id: Uuid,
         offer: RTCSessionDescription,
     ) -> Result<RTCSessionDescription, ClientError> {
         for ds in &self.data_sources {
             if ds.id == server_id {
-                self.logger.log_debug("Server ID found!");
-                return ds.accept_connection_req_of_client(offer).await;
+                return ds.accept_connection_req_of_client(client_id, offer).await;
+            }
+        }
+
+        Err(ClientError::ServerWithGivenIdNotFound)
+    }
+
+    pub async fn add_ice_candidate(
+        &self,
+        id: Uuid,
+        candidate: RTCIceCandidate,
+    ) -> Result<(), ClientError> {
+        for ds in &self.data_sources {
+            if ds.id == id {
+                return ds.add_ice_candidate(candidate).await;
             }
         }
 

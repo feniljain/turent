@@ -51,3 +51,18 @@ impl Default for ServerInfo {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientInfo {
+    pub url: String,
+    pub id: String,
+}
+
+impl Default for ClientInfo {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            id: String::new(),
+        }
+    }
+}

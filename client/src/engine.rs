@@ -4,8 +4,9 @@ use actix_web::{post, web, App, HttpResponse, HttpServer};
 use common::{
     entities::ServerInfo,
     logger::Logger,
-    models::{FindServerForFileReq, OfferReq, OfferRes},
+    models::{CandidateReq, FindServerForFileReq, OfferReq, OfferRes},
 };
+use serde_json::json;
 use uuid::{uuid, Uuid};
 
 use crate::{
@@ -89,12 +90,17 @@ impl Engine {
                 engine: Arc::new(Mutex::new(self)),
             });
 
-            HttpServer::new(move || App::new().app_data(app_state.clone()).service(on_offer))
-                .bind(("127.0.0.1", 8080))
-                .map_err(|_| ClientError::ApiError(ApiError::ErrorInitializingServer))?
-                .run()
-                .await
-                .map_err(|_| ClientError::ApiError(ApiError::ErrorInitializingServer))
+            HttpServer::new(move || {
+                App::new()
+                    .app_data(app_state.clone())
+                    .service(on_offer)
+                    .service(candidates)
+            })
+            .bind(("127.0.0.1", 8080))
+            .map_err(|_| ClientError::ApiError(ApiError::ErrorInitializingServer))?
+            .run()
+            .await
+            .map_err(|_| ClientError::ApiError(ApiError::ErrorRunningServer))
         } else {
             let file_id = uuid!("67e55044-10b1-426f-9247-bb680e5ff1b8");
 
@@ -111,6 +117,22 @@ impl Engine {
             self.new_data_sink(file_id, res.servers_info[0].clone())
                 .await?;
 
+            let app_state = web::Data::new(AppState {
+                engine: Arc::new(Mutex::new(self)),
+            });
+
+            HttpServer::new(move || {
+                App::new()
+                    .app_data(app_state.clone())
+                    .service(on_offer)
+                    .service(candidates)
+            })
+            .bind(("127.0.0.1", 8081))
+            .map_err(|_| ClientError::ApiError(ApiError::ErrorInitializingServer))?
+            .run()
+            .await
+            .map_err(|_| ClientError::ApiError(ApiError::ErrorRunningServer))
+
             //connection to current one fails
             // let res = self.api.send_offer(OfferReq {
             //     server_id: res.server_info.clone_into,
@@ -118,7 +140,7 @@ impl Engine {
             // });
 
             //TODO:
-            Ok(())
+            // Ok(())
         }
     }
 
@@ -138,8 +160,8 @@ pub async fn on_offer(
         Ok(x) => x,
         Err(_) => return Err(ClientError::ApiError(ApiError::InternalServerError)),
     };
-
     engine.logger.log_debug("Received offer");
+
     let data_source_manager = match &engine.data_source_manager {
         Some(x) => x,
         None => return Err(ClientError::InvalidConfiguration),
@@ -152,12 +174,63 @@ pub async fn on_offer(
     };
     engine.logger.log_debug("Valid server id");
 
+    let client_id = match Uuid::parse_str(&req.client_info.id) {
+        Ok(x) => x,
+        Err(_) => return Err(ClientError::ApiError(ApiError::InvalidIdFormat)),
+    };
+    engine.logger.log_debug("Valid client id");
+
     let answer = data_source_manager
-        .connect_to_client(server_id, req.session_desc.clone())
+        .connect_to_client(client_id, server_id, req.session_desc.clone())
         .await?;
     engine.logger.log_debug("Answer received");
 
     Ok(HttpResponse::Ok().json(OfferRes {
         session_desc: answer,
     }))
+}
+
+#[post("/candidates")]
+pub async fn candidates(
+    req: web::Json<CandidateReq>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse, ClientError> {
+    let engine = match data.engine.lock() {
+        Ok(x) => x,
+        Err(_) => return Err(ClientError::ApiError(ApiError::InternalServerError)),
+    };
+    engine
+        .logger
+        // .log_debug(&format!("Received candidate {:?}", req));
+        .log_debug("Received candidate");
+
+    let id = match Uuid::parse_str(&req.id) {
+        Ok(x) => x,
+        Err(_) => return Err(ClientError::ApiError(ApiError::InvalidIdFormat)),
+    };
+    // engine.logger.log_debug("Valid id");
+    engine.logger.log_debug(&format!("Valid id: {:?}", id));
+
+    if let Some(data_sink_manager) = &engine.data_sink_manager {
+        engine
+            .logger
+            .log_debug("Received req to add candidate in data sink");
+        data_sink_manager
+            .add_ice_candidate(id, req.candidate.clone())
+            .await?;
+    } else {
+        engine
+            .logger
+            .log_debug("Received req to add candidate in data source");
+        if let Some(data_source_manager) = &engine.data_source_manager {
+            data_source_manager
+                .add_ice_candidate(id, req.candidate.clone())
+                .await?;
+        }
+    }
+    engine.logger.log_debug("Candidate Added");
+
+    Ok(HttpResponse::Ok().json(json!({
+        "success":  true,
+    })))
 }
